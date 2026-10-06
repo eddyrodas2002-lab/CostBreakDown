@@ -234,9 +234,9 @@ button { cursor: pointer; }
   border: 2px solid currentColor;
 }
 
+.toggle-block { margin-top: 10px; }
 .toggle-row {
   width: 100%;
-  margin-top: 10px;
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -246,9 +246,38 @@ button { cursor: pointer; }
   border: 3px solid var(--ink);
   border-radius: 18px;
   padding: 12px;
+  cursor: pointer;
 }
+.toggle-copy { min-width: 0; }
+.toggle-title { display: flex; align-items: center; gap: 8px; }
 .toggle-row strong, .toggle-row small { display: block; }
 .toggle-row small { color: var(--muted); font-weight: 700; }
+.switch-hit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  padding: 4px;
+  min-width: 72px;
+  min-height: 48px;
+}
+.switch { display: block; }
+.info-btn {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  background: #1d7ef2;
+  color: white;
+  font-family: Fredoka, Nunito, sans-serif;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.info-btn.open { background: var(--ink); color: var(--sun); }
 .switch {
   width: 64px;
   height: 36px;

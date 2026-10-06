@@ -47,24 +47,22 @@ export function SettingsScreen() {
           on={settings.blackCard}
           title="Black card"
           detail="Executive membership, 2% reward"
+          info={[
+            "Costco pays about 2% back on most warehouse merchandise, before tax. Gas, the food court, membership fees, and taxes are not included. The reward tops out at $1,250 a year.",
+            "The Executive upgrade costs $65 more than Gold Star. That $65 is covered once eligible shopping reaches about $3,250.",
+          ]}
           onChange={(blackCard) => updateSettings({ blackCard })}
         />
-        <div className="callout">
-          <p>
-            Costco pays about 2% back on most warehouse merchandise, before tax. Gas, the food court, membership fees, and taxes are not included. The reward tops out at $1,250 a year.
-          </p>
-          <p>The Executive upgrade costs $65 more than Gold Star. That $65 is covered once eligible shopping reaches about $3,250.</p>
-        </div>
         <ToggleRow
           on={settings.costcoVisa}
           title="Costco Visa"
           detail="Costco Anywhere Visa by Citi"
+          info={[
+            "2% back on Costco merchandise and 5% on gas bought at Costco. After $7,000 of gas, that gas rate drops to 1%. There isn’t a cap on the 2% warehouse rate.",
+            "With the black card also on, groceries come back at 4%.",
+          ]}
           onChange={(costcoVisa) => updateSettings({ costcoVisa })}
         />
-        <div className="callout sky">
-          <p>2% back on Costco merchandise and 5% on gas bought at Costco. After $7,000 of gas, that gas rate drops to 1%. There isn’t a cap on the 2% warehouse rate.</p>
-          <p>With the black card also on, groceries come back at 4%.</p>
-        </div>
       </section>
 
       <section className="panel">
