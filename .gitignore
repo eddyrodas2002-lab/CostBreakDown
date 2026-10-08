@@ -4,3 +4,6 @@ dist
 *.local
 .vite
 coverage
+data/receipts/*
+!data/receipts/.gitkeep
+data/settings.json

@@ -447,6 +447,23 @@ label { display: grid; gap: 6px; font-size: 0.95rem; }
 .receipt-art span:nth-child(4) { background: var(--sun); width: 90%; border: 2px solid var(--ink); }
 
 .whole { background: linear-gradient(180deg, #ffe1f0 0%, #fffdf8 40%); }
+.code-path {
+  display: block;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: white;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  word-break: break-all;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 0.82rem;
+}
+.loading-screen {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
 
 @media (min-width: 800px) {
   .form-grid { grid-template-columns: 1fr 1fr; }

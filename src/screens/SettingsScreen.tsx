@@ -5,7 +5,7 @@ import { PACE_HELP } from "../lib/savings";
 import { isBackup, useStore } from "../lib/store";
 
 export function SettingsScreen() {
-  const { settings, receipts, updateSettings, replaceAll } = useStore();
+  const { settings, receipts, folder, updateSettings, replaceAll } = useStore();
   const [message, setMessage] = useState("");
 
   function downloadBackup() {
@@ -72,10 +72,12 @@ export function SettingsScreen() {
       </section>
 
       <section className="panel">
-        <h2>Your receipts stay here</h2>
+        <h2>Saved on this computer</h2>
         <p className="help">
-          Nothing is uploaded to an account. {receipts.length} {receipts.length === 1 ? "receipt is" : "receipts are"} saved in this browser. Download a backup if you want a copy.
+          Each trip is a file in the receipt folder. Nothing is sent to an account. {receipts.length}{" "}
+          {receipts.length === 1 ? "receipt is" : "receipts are"} saved there. Download a backup if you want another copy.
         </p>
+        <code className="code-path">{folder}</code>
         {message && <p className="banner">{message}</p>}
         <div className="action-row">
           <button type="button" className="btn btn-primary" onClick={downloadBackup}>

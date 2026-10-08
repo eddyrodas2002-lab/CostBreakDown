@@ -57,7 +57,7 @@ const TITLES: Record<Route["name"], string> = {
 
 export function App() {
   const { route, navigate } = useRoute();
-  const { draft, beginNew, beginSample, beginEdit } = useStore();
+  const { draft, status, beginNew, beginSample, beginEdit } = useStore();
   const tab: Tab | null = route.name === "trip" || route.name === "new" ? (route.name === "new" ? null : "trips") : route.name;
 
   function abandonDraft(): boolean {
@@ -107,6 +107,17 @@ export function App() {
   if (route.name === "settings") body = <SettingsScreen />;
   if (route.name === "new") body = <NewReceiptScreen onSaved={(id) => navigate(`/trip/${id}`)} onSample={openSample} />;
 
+  if (status === "loading") {
+    return (
+      <div className="loading-screen">
+        <section className="panel">
+          <h2>Opening your receipt folder…</h2>
+          <p className="help">Trips are loaded from the files saved on this computer.</p>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <Shell
       tab={tab}
@@ -115,6 +126,11 @@ export function App() {
       onNavigate={go}
       onAdd={addReceipt}
     >
+      {status === "offline" && (
+        <p className="banner warn">
+          The receipt folder isn’t available, so this visit stays in the browser. Run npm run dev to save files into data/receipts.
+        </p>
+      )}
       {body}
     </Shell>
   );

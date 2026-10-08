@@ -2,7 +2,7 @@
 
 A bright, simple way to break down Costco receipts. Add a trip, see the cart by category, and estimate what the Executive black card and the Costco Visa put back in your pocket by the end of the year.
 
-Receipts stay in this browser. Nothing is sent to an account.
+Receipts are saved as files in `data/receipts` on this computer. Nothing is sent to an account.
 
 ## Run it
 
@@ -29,7 +29,7 @@ The first receipt photo downloads a reader so the words can be recognized on thi
 1. **Add a receipt** from Home, or the Add receipt button.
 2. Choose a photo, paste the receipt text, or type the items yourself.
 3. Check the lines. Fix a name, price, or category if something looks off.
-4. Save. The trip shows up on its own, and the year’s totals update.
+4. Save. The trip is written to `data/receipts` as a JSON file named with the date and id, and the year’s totals update.
 
 A sample receipt is on the empty home screen if you want to click around first. Delete it whenever you like.
 
@@ -70,4 +70,6 @@ These are estimates from the receipts saved here, before tax.
 
 ## Your data
 
-Receipts and settings are saved in this browser only. In Settings you can download a JSON backup, restore one, or erase the receipts. Erasing receipts leaves the card toggles and pace as they are.
+While `npm run dev` or `npm run preview` is running, saving a receipt writes a file in `data/receipts`. Settings go in `data/settings.json`. You can open that folder and see every trip. Those files stay on this computer and are not committed to git.
+
+In Settings you can download a JSON backup, restore one, or erase the receipts. Erasing receipts removes the files from the folder and leaves the card toggles and pace as they are.

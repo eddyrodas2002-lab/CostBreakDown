@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Draft, Receipt, Settings } from "../types";
+import { fetchLibrary, putLibrary } from "./libraryClient";
 import { draftFromParsed, parseReceipt } from "./parseReceipt";
 import { buildSampleText, defaultSampleDate } from "./sampleReceipt";
 import { money, todayISO, uid } from "./money";
@@ -18,10 +19,14 @@ interface Persisted {
   receipts: Receipt[];
 }
 
+export type LibraryStatus = "loading" | "ready" | "offline";
+
 interface StoreValue {
   settings: Settings;
   receipts: Receipt[];
   draft: Draft | null;
+  status: LibraryStatus;
+  folder: string;
   updateSettings: (patch: Partial<Settings>) => void;
   setDraft: (draft: Draft | null) => void;
   beginNew: () => void;
@@ -72,18 +77,62 @@ export function isBackup(value: unknown): value is Persisted {
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [persisted, setPersisted] = useState<Persisted>(loadPersisted);
+  const [persisted, setPersisted] = useState<Persisted>({ version: 1, settings: defaultSettings, receipts: [] });
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [status, setStatus] = useState<LibraryStatus>("loading");
+  const [folder, setFolder] = useState("data/receipts");
+  const skipWrite = useRef(true);
+  const writeQueue = useRef(Promise.resolve());
 
   useEffect(() => {
+    let cancel = false;
+    void (async () => {
+      try {
+        let remote = await fetchLibrary();
+        const local = loadPersisted();
+        if (remote.receipts.length === 0 && local.receipts.length > 0) {
+          remote = await putLibrary(local);
+        }
+        if (cancel) return;
+        skipWrite.current = true;
+        setPersisted({ version: 1, settings: { ...defaultSettings, ...remote.settings }, receipts: remote.receipts });
+        setFolder(remote.folder || "data/receipts");
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, settings: remote.settings, receipts: remote.receipts }));
+        setStatus("ready");
+      } catch {
+        if (cancel) return;
+        skipWrite.current = true;
+        setPersisted(loadPersisted());
+        setStatus("offline");
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (status === "loading") return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
-  }, [persisted]);
+    if (status !== "ready") return;
+    if (skipWrite.current) {
+      skipWrite.current = false;
+      return;
+    }
+    const snapshot = persisted;
+    writeQueue.current = writeQueue.current
+      .then(() => putLibrary(snapshot))
+      .then((saved) => setFolder(saved.folder || "data/receipts"))
+      .catch(() => setStatus("offline"));
+  }, [persisted, status]);
 
   const value = useMemo<StoreValue>(() => {
     return {
       settings: persisted.settings,
       receipts: persisted.receipts,
       draft,
+      status,
+      folder,
       updateSettings: (patch) => {
         setPersisted((current) => ({
           ...current,
@@ -158,7 +207,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setDraft(null);
       },
     };
-  }, [persisted, draft]);
+  }, [persisted, draft, status, folder]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
