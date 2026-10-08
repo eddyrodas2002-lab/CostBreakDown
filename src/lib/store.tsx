@@ -11,6 +11,11 @@ const defaultSettings: Settings = {
   blackCard: true,
   costcoVisa: true,
   pace: "auto",
+  payAmount: 0,
+  payCadence: "biweekly",
+  planCadence: "biweekly",
+  nearbyGasPrice: 0,
+  necessary: [],
 };
 
 interface Persisted {

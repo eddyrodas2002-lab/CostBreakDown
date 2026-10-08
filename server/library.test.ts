@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { readLibrary, receiptFileName, writeLibrary, type StoredReceipt } from "./library";
+import { readLibrary, receiptFileName, writeLibrary, type StoredReceipt, type StoredSettings } from "./library";
 
 const roots: string[] = [];
 
@@ -10,6 +10,17 @@ function makeRoot(): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "costbreak-"));
   roots.push(root);
   return root;
+}
+
+function settings(partial: Pick<StoredSettings, "blackCard" | "costcoVisa" | "pace">): StoredSettings {
+  return {
+    payAmount: 0,
+    payCadence: "biweekly",
+    planCadence: "biweekly",
+    nearbyGasPrice: 0,
+    necessary: [],
+    ...partial,
+  };
 }
 
 function receipt(id: string, purchasedAt: string): StoredReceipt {
@@ -34,7 +45,7 @@ describe("receipt folder", () => {
     const first = receipt("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "2026-09-21");
     const second = receipt("bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee", "2026-10-02");
     writeLibrary(root, {
-      settings: { blackCard: true, costcoVisa: false, pace: "weekly" },
+      settings: settings({ blackCard: true, costcoVisa: false, pace: "weekly" }),
       receipts: [first, second],
     });
 
@@ -52,12 +63,12 @@ describe("receipt folder", () => {
     const root = makeRoot();
     const original = receipt("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "2026-09-21");
     writeLibrary(root, {
-      settings: { blackCard: true, costcoVisa: true, pace: "auto" },
+      settings: settings({ blackCard: true, costcoVisa: true, pace: "auto" }),
       receipts: [original],
     });
     const moved = { ...original, purchasedAt: "2026-10-01" };
     writeLibrary(root, {
-      settings: { blackCard: true, costcoVisa: true, pace: "auto" },
+      settings: settings({ blackCard: true, costcoVisa: true, pace: "auto" }),
       receipts: [moved],
     });
 
@@ -65,7 +76,7 @@ describe("receipt folder", () => {
     expect(names).toEqual([receiptFileName(moved)]);
 
     writeLibrary(root, {
-      settings: { blackCard: false, costcoVisa: true, pace: "monthly" },
+      settings: settings({ blackCard: false, costcoVisa: true, pace: "monthly" }),
       receipts: [],
     });
     expect(fs.readdirSync(path.join(root, "data", "receipts"))).toEqual([]);

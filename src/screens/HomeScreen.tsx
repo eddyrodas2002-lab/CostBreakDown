@@ -7,7 +7,17 @@ import { formatMoney, formatPrettyDate } from "../lib/money";
 import { buildYearSummary, PACE_HELP } from "../lib/savings";
 import { useStore } from "../lib/store";
 
-export function HomeScreen({ onOpen, onAdd, onSample }: { onOpen: (id: string) => void; onAdd: () => void; onSample: () => void }) {
+export function HomeScreen({
+  onOpen,
+  onAdd,
+  onSample,
+  onPlan,
+}: {
+  onOpen: (id: string) => void;
+  onAdd: () => void;
+  onSample: () => void;
+  onPlan: () => void;
+}) {
   const { receipts, settings, updateSettings } = useStore();
   const summary = useMemo(() => buildYearSummary(receipts, settings, new Date()), [receipts, settings]);
   const recent = [...receipts].sort((a, b) => b.purchasedAt.localeCompare(a.purchasedAt) || b.createdAt.localeCompare(a.createdAt)).slice(0, 4);
@@ -74,6 +84,10 @@ export function HomeScreen({ onOpen, onAdd, onSample }: { onOpen: (id: string) =
             <span>if this pace keeps going</span>
           </article>
         </div>
+
+        <button type="button" className="btn btn-sun wide" onClick={onPlan}>
+          Open the pre-Costco plan
+        </button>
 
         <section className="panel">
           <h2>What’s counting</h2>

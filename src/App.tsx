@@ -3,6 +3,7 @@ import { Shell, type Tab } from "./components/Shell";
 import { useStore } from "./lib/store";
 import { CategoriesScreen } from "./screens/CategoriesScreen";
 import { HomeScreen } from "./screens/HomeScreen";
+import { PlanScreen } from "./screens/PlanScreen";
 import { NewReceiptScreen } from "./screens/NewReceiptScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { TripScreen } from "./screens/TripScreen";
@@ -10,6 +11,7 @@ import { TripsScreen } from "./screens/TripsScreen";
 
 type Route =
   | { name: "home" }
+  | { name: "plan" }
   | { name: "trips" }
   | { name: "trip"; id: string }
   | { name: "categories" }
@@ -18,6 +20,7 @@ type Route =
 
 function parseRoute(hash: string): Route {
   const path = (hash.replace(/^#/, "") || "/").split("?")[0];
+  if (path === "/plan") return { name: "plan" };
   if (path === "/trips") return { name: "trips" };
   if (path.startsWith("/trip/")) return { name: "trip", id: decodeURIComponent(path.slice("/trip/".length)) };
   if (path === "/categories") return { name: "categories" };
@@ -48,6 +51,7 @@ function useRoute() {
 
 const TITLES: Record<Route["name"], string> = {
   home: "Home",
+  plan: "Plan",
   trips: "Trips",
   trip: "Trip",
   categories: "Categories",
@@ -88,8 +92,9 @@ export function App() {
   }
 
   let body = (
-    <HomeScreen onOpen={(id) => navigate(`/trip/${id}`)} onAdd={addReceipt} onSample={openSample} />
+    <HomeScreen onOpen={(id) => navigate(`/trip/${id}`)} onAdd={addReceipt} onSample={openSample} onPlan={() => navigate("/plan")} />
   );
+  if (route.name === "plan") body = <PlanScreen />;
   if (route.name === "trips") body = <TripsScreen onOpen={(id) => navigate(`/trip/${id}`)} onAdd={addReceipt} />;
   if (route.name === "trip") {
     body = (

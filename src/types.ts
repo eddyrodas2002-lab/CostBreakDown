@@ -14,6 +14,19 @@ export type Category =
 
 export type Pace = "auto" | "weekly" | "biweekly" | "monthly";
 
+export type PlanCadence = "weekly" | "biweekly";
+
+export type PayCadence = "weekly" | "biweekly" | "monthly";
+
+export interface PlanItem {
+  key: string;
+  name: string;
+  quantity: number;
+  necessary: boolean;
+  price?: number;
+  custom?: boolean;
+}
+
 export interface LineItem {
   id: string;
   description: string;
@@ -43,6 +56,11 @@ export interface Settings {
   blackCard: boolean;
   costcoVisa: boolean;
   pace: Pace;
+  payAmount: number;
+  payCadence: PayCadence;
+  planCadence: PlanCadence;
+  nearbyGasPrice: number;
+  necessary: PlanItem[];
 }
 
 export interface Draft {

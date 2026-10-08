@@ -17,10 +17,24 @@ export interface StoredReceipt {
   createdAt: string;
 }
 
+export interface StoredPlanItem {
+  key: string;
+  name: string;
+  quantity: number;
+  necessary: boolean;
+  price?: number;
+  custom?: boolean;
+}
+
 export interface StoredSettings {
   blackCard: boolean;
   costcoVisa: boolean;
   pace: "auto" | "weekly" | "biweekly" | "monthly";
+  payAmount: number;
+  payCadence: "weekly" | "biweekly" | "monthly";
+  planCadence: "weekly" | "biweekly";
+  nearbyGasPrice: number;
+  necessary: StoredPlanItem[];
 }
 
 export interface LibraryFile {
@@ -34,6 +48,11 @@ const defaultSettings: StoredSettings = {
   blackCard: true,
   costcoVisa: true,
   pace: "auto",
+  payAmount: 0,
+  payCadence: "biweekly",
+  planCadence: "biweekly",
+  nearbyGasPrice: 0,
+  necessary: [],
 };
 
 export function receiptsDir(root: string): string {
@@ -63,14 +82,53 @@ function isReceipt(value: unknown): value is StoredReceipt {
   );
 }
 
-function isSettings(value: unknown): value is StoredSettings {
-  if (!value || typeof value !== "object") return false;
+function planItem(value: unknown): StoredPlanItem | null {
+  if (!value || typeof value !== "object") return null;
+  const item = value as Partial<StoredPlanItem>;
+  if (typeof item.key !== "string" || typeof item.name !== "string" || typeof item.quantity !== "number") return null;
+  if (typeof item.necessary !== "boolean") return null;
+  return {
+    key: item.key,
+    name: item.name,
+    quantity: item.quantity,
+    necessary: item.necessary,
+    price: typeof item.price === "number" ? item.price : undefined,
+    custom: Boolean(item.custom),
+  };
+}
+
+export function normalizeSettings(value: unknown): StoredSettings | null {
+  if (!value || typeof value !== "object") return null;
   const settings = value as Partial<StoredSettings>;
-  return (
-    typeof settings.blackCard === "boolean" &&
-    typeof settings.costcoVisa === "boolean" &&
-    (settings.pace === "auto" || settings.pace === "weekly" || settings.pace === "biweekly" || settings.pace === "monthly")
-  );
+  if (typeof settings.blackCard !== "boolean" || typeof settings.costcoVisa !== "boolean") return null;
+  if (
+    settings.pace !== "auto" &&
+    settings.pace !== "weekly" &&
+    settings.pace !== "biweekly" &&
+    settings.pace !== "monthly"
+  ) {
+    return null;
+  }
+  const payCadence =
+    settings.payCadence === "weekly" || settings.payCadence === "biweekly" || settings.payCadence === "monthly"
+      ? settings.payCadence
+      : defaultSettings.payCadence;
+  const planCadence =
+    settings.planCadence === "weekly" || settings.planCadence === "biweekly"
+      ? settings.planCadence
+      : defaultSettings.planCadence;
+  return {
+    blackCard: settings.blackCard,
+    costcoVisa: settings.costcoVisa,
+    pace: settings.pace,
+    payAmount: typeof settings.payAmount === "number" && settings.payAmount >= 0 ? settings.payAmount : 0,
+    payCadence,
+    planCadence,
+    nearbyGasPrice: typeof settings.nearbyGasPrice === "number" && settings.nearbyGasPrice >= 0 ? settings.nearbyGasPrice : 0,
+    necessary: Array.isArray(settings.necessary)
+      ? settings.necessary.map(planItem).filter((item): item is StoredPlanItem => item !== null)
+      : [],
+  };
 }
 
 export function receiptFileName(receipt: StoredReceipt): string {
@@ -118,7 +176,8 @@ export function readLibrary(root: string): LibraryFile {
   if (fs.existsSync(settingsFile)) {
     try {
       const parsed = readJson(settingsFile);
-      if (isSettings(parsed)) settings = parsed;
+      const normalized = normalizeSettings(parsed);
+      if (normalized) settings = normalized;
     } catch {
       settings = defaultSettings;
     }
@@ -128,7 +187,8 @@ export function readLibrary(root: string): LibraryFile {
 }
 
 export function writeLibrary(root: string, library: Pick<LibraryFile, "settings" | "receipts">) {
-  if (!isSettings(library.settings) || !Array.isArray(library.receipts) || !library.receipts.every(isReceipt)) {
+  const settings = normalizeSettings(library.settings);
+  if (!settings || !Array.isArray(library.receipts) || !library.receipts.every(isReceipt)) {
     throw new Error("That receipt file is missing a date, items, or total.");
   }
   const folder = receiptsDir(root);
@@ -145,7 +205,7 @@ export function writeLibrary(root: string, library: Pick<LibraryFile, "settings"
   for (const receipt of library.receipts) {
     writeJson(path.join(folder, receiptFileName(receipt)), receipt);
   }
-  writeJson(settingsPath(root), library.settings);
+  writeJson(settingsPath(root), settings);
 }
 
 function sendJson(response: ServerResponse, status: number, body: unknown) {

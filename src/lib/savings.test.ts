@@ -6,7 +6,16 @@ import { buildYearSummary, summarize } from "./savings";
 import { daysUntilYearEnd, money } from "./money";
 import type { LineItem, Receipt, Settings } from "../types";
 
-const both: Settings = { blackCard: true, costcoVisa: true, pace: "auto" };
+const both: Settings = {
+  blackCard: true,
+  costcoVisa: true,
+  pace: "auto",
+  payAmount: 0,
+  payCadence: "biweekly",
+  planCadence: "biweekly",
+  nearbyGasPrice: 0,
+  necessary: [],
+};
 
 function item(description: string, amount: number): LineItem {
   return makeItem({
@@ -42,7 +51,7 @@ describe("summarize", () => {
       groceryRewards: 2,
       total: 2,
     });
-    expect(summarize(eggs, { blackCard: false, costcoVisa: false, pace: "auto" }, true).total).toBe(0);
+    expect(summarize(eggs, { ...both, blackCard: false, costcoVisa: false }, true).total).toBe(0);
   });
 
   it("caps the black card at $1,250 and Costco gas at $7,000", () => {

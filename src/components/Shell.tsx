@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type Tab = "home" | "trips" | "categories" | "settings";
+export type Tab = "home" | "plan" | "trips" | "categories" | "settings";
 
 export function Shell({
   tab,
@@ -35,6 +35,9 @@ export function Shell({
         <nav className="rail-nav" aria-label="Main">
           <RailLink active={tab === "home"} onClick={() => onNavigate("/")}>
             Home
+          </RailLink>
+          <RailLink active={tab === "plan"} onClick={() => onNavigate("/plan")}>
+            Plan
           </RailLink>
           <RailLink active={tab === "trips"} onClick={() => onNavigate("/trips")}>
             Trips
@@ -72,6 +75,9 @@ export function Shell({
         <nav className="tabbar" aria-label="Main">
           <TabButton active={tab === "home"} label="Home" onClick={() => onNavigate("/")}>
             <HomeIcon />
+          </TabButton>
+          <TabButton active={tab === "plan"} label="Plan" onClick={() => onNavigate("/plan")}>
+            <PlanIcon />
           </TabButton>
           <TabButton active={tab === "trips"} label="Trips" onClick={() => onNavigate("/trips")}>
             <ReceiptIcon />
@@ -136,6 +142,16 @@ function ReceiptIcon() {
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M7 3h10a1 1 0 0 1 1 1v17l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2L6 21V4a1 1 0 0 1 1-1z" />
       <path d="M9 8h6M9 12h6M9 16h4" />
+    </svg>
+  );
+}
+
+function PlanIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M8 4h8v3H8z" />
+      <path d="M7 6H5v15h14V6h-2" />
+      <path d="M8 12h8M8 16h5" />
     </svg>
   );
 }

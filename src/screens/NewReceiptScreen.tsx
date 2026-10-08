@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { CATEGORIES, makeItem } from "../lib/categories";
 import { formatMoney, lineSum, money, todayISO } from "../lib/money";
-import { readReceiptImage } from "../lib/ocr";
+import { receiptKind } from "../lib/pdfText";
 import { draftFromParsed, parseReceipt } from "../lib/parseReceipt";
+import { readReceiptFile } from "../lib/readReceipt";
 import { summarize } from "../lib/savings";
 import { useStore } from "../lib/store";
 import type { Draft, LineItem } from "../types";
@@ -41,19 +42,19 @@ function Picker({
     setError("");
     setReading(true);
     setProgress(0.04);
-    setLabel("Opening your photo");
+    setLabel(receiptKind(file) === "pdf" ? "Opening the PDF" : "Opening your photo");
     try {
-      const text = await readReceiptImage(file, (value, nextLabel) => {
+      const text = await readReceiptFile(file, (value, nextLabel) => {
         setProgress(value);
         setLabel(nextLabel);
       });
       if (!text.trim()) {
-        setError("We couldn’t find any words in that photo. Try a clearer picture, or paste the text.");
+        setError("We couldn’t find any words in that file. Try a clearer photo, or paste the text.");
         return;
       }
       onParsed(draftFromParsed(parseReceipt(text)));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "That photo couldn’t be read. Paste the text instead.");
+      setError(caught instanceof Error ? caught.message : "That file couldn’t be read. Paste the text instead.");
     } finally {
       setReading(false);
     }
@@ -63,13 +64,13 @@ function Picker({
     <div className="stack">
       <section className={dragOver ? "dropzone hot" : "dropzone"}>
         <p className="step">1</p>
-        <h2>Photo of the receipt</h2>
-        <p>Use a straight, bright photo of the whole slip. JPG or PNG works best.</p>
+        <h2>Photo or PDF</h2>
+        <p>Use a photo of the slip, or a PDF from your email. JPG, PNG, and PDF all work.</p>
         <label className="btn btn-primary">
-          {reading ? "Reading…" : "Choose a photo"}
+          {reading ? "Reading…" : "Choose a photo or PDF"}
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,application/pdf,.pdf"
             hidden
             disabled={reading}
             onChange={(event) => {
@@ -93,7 +94,7 @@ function Picker({
             if (file) void readFile(file);
           }}
         >
-          Or drop a photo here
+          Or drop a photo or PDF here
         </div>
         {reading && (
           <div className="progress" role="progressbar" aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100}>
@@ -131,7 +132,7 @@ function Picker({
       <section className="panel">
         <p className="step">3</p>
         <h2>Type it yourself</h2>
-        <p className="help">Handy when a photo is too wrinkled to read.</p>
+        <p className="help">Handy when a photo or PDF is hard to read.</p>
         <div className="action-row">
           <button type="button" className="btn btn-ghost" onClick={onManual}>
             Add items by hand

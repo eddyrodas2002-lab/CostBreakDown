@@ -22,12 +22,12 @@ Open [http://127.0.0.1:5173/](http://127.0.0.1:5173/).
 | `npm run build` | Typecheck and build the production files |
 | `npm run preview` | Serve the production build locally |
 
-The first receipt photo downloads a reader so the words can be recognized on this device. That step needs a connection. After that, photos are read in the browser. Pasting the receipt text does not need the download.
+A photo, or a PDF that is only a scan, downloads a reader the first time so the words can be recognized on this device. That step needs a connection. After that, photos and scans are read in the browser. A PDF that already contains text is read without that download. Pasting the receipt text does not need it either.
 
 ## How a trip gets in
 
 1. **Add a receipt** from Home, or the Add receipt button.
-2. Choose a photo, paste the receipt text, or type the items yourself.
+2. Choose a photo or a PDF, paste the receipt text, or type the items yourself.
 3. Check the lines. Fix a name, price, or category if something looks off.
 4. Save. The trip is written to `data/receipts` as a JSON file named with the date and id, and the year’s totals update.
 
@@ -36,6 +36,8 @@ A sample receipt is on the empty home screen if you want to click around first. 
 ## What the screens show
 
 **Home** is the summary. The big number is what you’re on pace to get back by December 31. Under it: grocery rewards so far, grocery rewards by year end, and the latest trips.
+
+**Plan** is the list to buy before you go. It finds the foods that show up trip after trip, lets you edit quantities, and prices them at what you paid most recently so rising prices are in the budget. Gas is part of each trip. A bar graph and a pie chart split spending into food, clothes, gas, and everything else. Enter your paycheck and the price at another gas station to see what’s left and what Costco gas saved.
 
 **Trips** lists every receipt. Open one to see items grouped by category, with the black card and Visa share for that visit.
 
