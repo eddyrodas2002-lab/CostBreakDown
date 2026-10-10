@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { readLibrary, receiptFileName, writeLibrary, type StoredReceipt, type StoredSettings } from "./library";
+import { readLibrary, readOriginal, receiptFileName, writeLibrary, writeOriginal, type StoredReceipt, type StoredSettings } from "./library";
 
 const roots: string[] = [];
 
@@ -81,5 +81,41 @@ describe("receipt folder", () => {
     });
     expect(fs.readdirSync(path.join(root, "data", "receipts"))).toEqual([]);
     expect(readLibrary(root).settings.blackCard).toBe(false);
+  });
+
+  it("keeps the original pdf beside the receipt and removes it with the trip", () => {
+    const root = makeRoot();
+    const trip = receipt("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "2026-09-15");
+    writeLibrary(root, {
+      settings: settings({ blackCard: true, costcoVisa: true, pace: "auto" }),
+      receipts: [trip],
+    });
+    const sourceFile = writeOriginal(root, trip.id, Buffer.from("%PDF-1.4 sample"), "application/pdf");
+    expect(sourceFile).toBe("2026-09-15_aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.pdf");
+
+    const library = readLibrary(root);
+    expect(library.files).toEqual([
+      "2026-09-15_aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.json",
+      "2026-09-15_aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.pdf",
+    ]);
+    expect(library.receipts[0].sourceFile).toBe(sourceFile);
+    expect(readOriginal(root, trip.id)?.type).toBe("application/pdf");
+
+    const moved = { ...trip, purchasedAt: "2026-10-01" };
+    writeLibrary(root, {
+      settings: settings({ blackCard: true, costcoVisa: true, pace: "auto" }),
+      receipts: [moved],
+    });
+    expect(readLibrary(root).files).toEqual([
+      "2026-10-01_aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.json",
+      "2026-10-01_aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.pdf",
+    ]);
+
+    writeLibrary(root, {
+      settings: settings({ blackCard: true, costcoVisa: true, pace: "auto" }),
+      receipts: [],
+    });
+    expect(readLibrary(root).files).toEqual([]);
+    expect(readOriginal(root, trip.id)).toBeNull();
   });
 });

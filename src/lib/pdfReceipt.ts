@@ -1,5 +1,6 @@
 import type { PDFPageProxy } from "pdfjs-dist";
 import { readReceiptImage } from "./ocr";
+import { parseReceipt } from "./parseReceipt";
 import { hasReadableText, linesFromTextItems } from "./pdfText";
 
 const MAX_PAGES = 8;
@@ -78,7 +79,10 @@ export async function readReceiptPdf(
       page.cleanup();
     }
     const combined = parts.join("\n");
-    if (hasReadableText(combined)) return combined;
+    if (hasReadableText(combined)) {
+      const parsed = parseReceipt(combined);
+      if (parsed.items.length > 0 || combined.length > 500) return combined;
+    }
 
     const scans: string[] = [];
     for (let number = 1; number <= pageCount; number += 1) {

@@ -36,18 +36,19 @@ export function linesFromTextItems(items: readonly object[]): string {
 
   const rows: PlacedText[][] = [];
   for (const item of placed) {
-    const row = rows.find((candidate) => Math.abs(candidate[0].y - item.y) <= 3);
+    const row = rows.find((candidate) => candidate.some((entry) => Math.abs(entry.y - item.y) <= 8));
     if (row) row.push(item);
     else rows.push([item]);
   }
 
   return rows
     .map((row) => {
-      row.sort((a, b) => a.x - b.x);
+      row.sort((a, b) => a.x - b.x || b.y - a.y);
       let line = "";
       let cursor = 0;
       for (const item of row) {
-        if (line && item.x - cursor > 1.5) line += " ";
+        const gap = item.x - cursor;
+        if (line && (gap > 1.5 || gap < -1)) line += " ";
         line += item.str;
         cursor = Math.max(cursor, item.x + item.width);
       }

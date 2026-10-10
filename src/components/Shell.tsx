@@ -40,7 +40,7 @@ export function Shell({
             Plan
           </RailLink>
           <RailLink active={tab === "trips"} onClick={() => onNavigate("/trips")}>
-            Trips
+            Receipts
           </RailLink>
           <RailLink active={tab === "categories"} onClick={() => onNavigate("/categories")}>
             Categories
@@ -79,7 +79,7 @@ export function Shell({
           <TabButton active={tab === "plan"} label="Plan" onClick={() => onNavigate("/plan")}>
             <PlanIcon />
           </TabButton>
-          <TabButton active={tab === "trips"} label="Trips" onClick={() => onNavigate("/trips")}>
+          <TabButton active={tab === "trips"} label="Receipts" onClick={() => onNavigate("/trips")}>
             <ReceiptIcon />
           </TabButton>
           <TabButton active={tab === "categories"} label="Categories" onClick={() => onNavigate("/categories")}>

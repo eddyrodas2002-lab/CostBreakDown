@@ -1,6 +1,6 @@
-import { applyTaxHint, categorize, makeItem } from "./categories";
+import { applyTaxHint, categorize, makeItem, readableCostcoName } from "./categories";
 import { money, todayISO } from "./money";
-import type { Draft, LineItem } from "../types";
+import type { Draft, LineItem, Receipt } from "../types";
 
 export interface ParsedReceipt {
   purchasedAt: string;
@@ -21,8 +21,10 @@ interface RawItem {
   taxCode?: string;
 }
 
+const FUEL_LINE = /\b(pumps?|gallons?|gals?|unleaded|diesel|gasoline|fuel)\b/i;
+
 const NOISE =
-  /^(costco\b|wholesale|member|thank|subtotal\b|tax\b|sales tax|total\b|\*+|change\b|visa\b|mastercard|debit\b|cash\b|amex|discover|approval|approved|ref\b|aid\b|whse\b|items sold|amount\b|www\.|https?:|phone|auth|seq\b|term\b|trace\b|card\b|acct\b|account\b|tender|you saved|instant savings total|ebt\b|balance|invoice|operator|store\b|st#|reg\b|tc#|date\b)/i;
+  /^(costco\b|wholesale|member|thank|subtotal\b|tax\b|sales tax|total\b|\*+|change\b|visa\b|mastercard|debit\b|cash\b|amex|discover|approval|approved|ref\b|aid\b|whse\b|items sold|amount\b|www\.|https?:|phone|auth|seq\b|term\b|trace\b|card\b|acct\b|account\b|tender|you saved|instant savings total|ebt\b|balance|invoice|operator|store\b|st#|reg\b|tc#|date\b|firefox\b|product\s+amount\b|pump\s+gallons\b|search\b|visit\b|\d+\s+of\s+\d+\b)/i;
 
 function cleanMoneyText(text: string): string {
   return text
@@ -31,7 +33,7 @@ function cleanMoneyText(text: string): string {
     .replace(/[−–—]/g, "-")
     .replace(/\$/g, "")
     .replace(/(\d),(\d{2})\b/g, "$1.$2")
-    .replace(/(?<!\d)(\d{1,4})\s+(\d{2})(?!\d)/g, "$1.$2")
+    .replace(/(?<!\d)(\d{1,4})[^\S\n]+(\d{2})(?![\d/])/g, "$1.$2")
     .replace(/[^\S\n]+/g, " ")
     .replace(/[ \t]+\n/g, "\n")
     .trim();
@@ -44,7 +46,8 @@ function labeledAmount(line: string, label: RegExp): number | null {
 }
 
 function parseDate(lines: string[], fallback: string): string {
-  const pool = lines.slice(0, 20).join("\n");
+  const labeled = lines.find((line) => /\bdate\s*:/i.test(line));
+  const pool = labeled ?? lines.slice(0, 24).join("\n");
   const match = pool.match(
     /\b(0?[1-9]|1[0-2])[\/\-.](0?[1-9]|[12]\d|3[01])[\/\-.](\d{2}|\d{4})\b/,
   );
@@ -58,16 +61,31 @@ function parseDate(lines: string[], fallback: string): string {
   return `${year}-${isoMonth}-${isoDay}`;
 }
 
+function titleCase(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function parseWarehouse(lines: string[]): string {
-  for (const line of lines.slice(0, 8)) {
+  const head = lines.filter((line) => !/firefox|https?:|^\d+\s+of\s+\d+$/i.test(line)).slice(0, 12);
+  for (const line of head) {
     const match = line.match(/^([A-Z][A-Z .'-]{2,})\s+([A-Z]{2})$/);
     if (match && !/COSTCO|WHOLESALE|TOTAL|SUBTOTAL/.test(match[1])) {
-      const city = match[1]
-        .trim()
-        .toLowerCase()
-        .replace(/\b\w/g, (letter) => letter.toUpperCase());
-      return `${city}, ${match[2]}`;
+      return `${titleCase(match[1])}, ${match[2]}`;
     }
+  }
+  const city = head
+    .map((line) => line.match(/^([A-Za-z][A-Za-z .'-]+),\s*([A-Z]{2})\s+\d{5}\b/))
+    .find(Boolean);
+  const warehouse = head.find((line) => /#\d{2,4}\s*$/.test(line) && !/\d{3,}\s/.test(line));
+  if (city) {
+    const place = `${titleCase(city[1])}, ${city[2]}`;
+    if (!warehouse) return place;
+    const name = titleCase(warehouse.replace(/\s+#\d{2,4}\s*$/, ""));
+    if (name.toLowerCase() === city[1].trim().toLowerCase()) return place;
+    return `${name}, ${place}`;
   }
   return "Costco";
 }
@@ -89,27 +107,107 @@ function quantityLine(line: string): { quantity: number; unitPrice: number } | n
 }
 
 function itemLine(line: string): RawItem | null {
-  const priced = line.match(
-    /^(?:([A-Z])\s+)?(?:(\d{5,})\s+)?([A-Za-z][A-Za-z0-9 &'./#-]{1,}?)\s+(-?\d+\.\d{2})(?:\s+([A-Z]))?\s*$/,
-  );
-  if (priced) {
-    const taxCode = (priced[5] || priced[1] || "").toUpperCase();
+  const amounts = [...line.matchAll(/-?\d+\.\d{2}(?!\d)/g)];
+  if (!amounts.length) {
+    const pending = line.match(/^(?:([A-Z])\s+)?(\d{5,})\s+(.+)$/);
+    if (!pending || !/[A-Za-z]{2,}/.test(pending[3])) return null;
     return {
-      description: priced[3].replace(/\s+/g, " ").trim(),
-      itemNumber: priced[2],
+      description: pending[3].replace(/\s+/g, " ").trim(),
+      itemNumber: pending[2],
       quantity: 1,
-      amount: money(Number(priced[4])),
-      taxCode: taxCode.length === 1 ? taxCode : undefined,
+      taxCode: pending[1]?.toUpperCase(),
     };
   }
-  const pending = line.match(/^(?:([A-Z])\s+)?(?:(\d{5,})\s+)([A-Za-z][A-Za-z0-9 &'./#-]{1,})$/);
-  if (!pending) return null;
-  const taxCode = (pending[1] || "").toUpperCase();
+
+  const last = amounts[amounts.length - 1];
+  let cut = last.index ?? 0;
+  const amount = money(Number(last[0]));
+  let unitPrice: number | undefined;
+  if (amounts.length >= 2) {
+    const previous = amounts[amounts.length - 2];
+    const gap = line.slice((previous.index ?? 0) + previous[0].length, cut).trim();
+    if (gap === "") {
+      unitPrice = money(Number(previous[0]));
+      cut = previous.index ?? cut;
+    }
+  }
+
+  let head = line.slice(0, cut).trim();
+  const after = line.slice((last.index ?? 0) + last[0].length).trim();
+  let taxCode = /^[EA]$/.test(after) ? after : undefined;
+  const leadTax = head.match(/^([A-Z])\s+/);
+  if (leadTax) {
+    taxCode = taxCode || leadTax[1];
+    head = head.slice(leadTax[0].length).trim();
+  }
+  let itemNumber: string | undefined;
+  const leadNumber = head.match(/^(\d{5,})\s+/);
+  if (leadNumber) {
+    itemNumber = leadNumber[1];
+    head = head.slice(leadNumber[0].length).trim();
+  }
+  let quantity = 1;
+  const quantityMatch = head.match(/^(.*[A-Za-z].*)\s+(\d{1,2})$/);
+  if (quantityMatch && Number(quantityMatch[2]) >= 1 && Number(quantityMatch[2]) <= 12) {
+    quantity = Number(quantityMatch[2]);
+    head = quantityMatch[1].trim();
+  }
+  const description = head.replace(/\s+/g, " ").trim();
+  if (!/[A-Za-z]{2,}/.test(description)) return null;
+  return { description, itemNumber, quantity, unitPrice, amount, taxCode };
+}
+
+function looseDescription(line: string): boolean {
+  if (FUEL_LINE.test(line) || /\d+\.\d{2}/.test(line)) return false;
+  return /[A-Za-z]{3,}/.test(line) && line.length <= 80;
+}
+
+function bindSplitPrices(lines: string[]): string[] {
+  const bound: string[] = [];
+  let index = 0;
+  while (index < lines.length) {
+    if (!looseDescription(lines[index])) {
+      bound.push(lines[index]);
+      index += 1;
+      continue;
+    }
+    const names: string[] = [];
+    while (index < lines.length && looseDescription(lines[index])) {
+      names.push(lines[index]);
+      index += 1;
+    }
+    const prices: string[] = [];
+    while (index < lines.length && priceOnly(lines[index])) {
+      prices.push(lines[index]);
+      index += 1;
+    }
+    if (!prices.length) {
+      bound.push(...names);
+      continue;
+    }
+    const pairCount = names.length >= 2 && prices.length >= 2 ? Math.min(names.length, prices.length) : 1;
+    const chosen = names.slice(names.length - pairCount);
+    bound.push(...names.slice(0, names.length - pairCount));
+    for (let pair = 0; pair < pairCount; pair += 1) bound.push(`${chosen[pair]} ${prices[pair]}`);
+    bound.push(...prices.slice(pairCount));
+  }
+  return bound;
+}
+
+function fuelFromText(text: string): RawItem | null {
+  const pump = text.match(/pump\s+gallons\s+price\s+(\d+)\s+(\d+(?:\.\d+)?)\s+\$?(\d+\.\d+)/i);
+  const product = text.match(/product\s+amount\s+(regular|premium|diesel|unleaded)\s+\$?(\d+\.\d{2})/i);
+  if (!pump && !product) return null;
+  const grade = product ? product[1][0].toUpperCase() + product[1].slice(1).toLowerCase() : "Fuel";
+  const gallons = pump ? Number(pump[2]) : undefined;
+  const perGallon = pump ? Number(pump[3]) : undefined;
+  const amount = product ? money(Number(product[2])) : gallons && perGallon ? money(gallons * perGallon) : undefined;
+  if (amount === undefined) return null;
   return {
-    description: pending[3].replace(/\s+/g, " ").trim(),
-    itemNumber: pending[2],
-    quantity: 1,
-    taxCode: taxCode.length === 1 ? taxCode : undefined,
+    description: pump ? `Pump ${pump[1]} ${grade}` : grade,
+    quantity: gallons && gallons > 0 ? gallons : 1,
+    unitPrice: perGallon ? money(perGallon) : undefined,
+    amount,
   };
 }
 
@@ -143,10 +241,12 @@ function applyQuantity(item: RawItem, qty: { quantity: number; unitPrice: number
 export function parseReceipt(text: string, today = todayISO()): ParsedReceipt {
   const rawText = text.replace(/\r/g, "").trim();
   const normalized = cleanMoneyText(rawText);
-  const lines = normalized
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const lines = bindSplitPrices(
+    normalized
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean),
+  );
 
   let subtotal: number | undefined;
   let tax: number | undefined;
@@ -173,12 +273,12 @@ export function parseReceipt(text: string, today = todayISO()): ParsedReceipt {
       subtotal = foundSubtotal;
       continue;
     }
-    const foundTax = labeledAmount(line, /^(sales\s+)?tax\b/i);
+    const foundTax = labeledAmount(line, /^(sales\s+)?tax\b|^total\s+tax\b/i);
     if (foundTax !== null) {
       tax = foundTax;
       continue;
     }
-    const foundTotal = labeledAmount(line, /^(grand\s+)?total\b|amount due/i);
+    const foundTotal = labeledAmount(line, /^(grand\s+)?total\b(?!\s+tax)|amount due/i);
     if (foundTotal !== null) {
       total = foundTotal;
       continue;
@@ -203,7 +303,23 @@ export function parseReceipt(text: string, today = todayISO()): ParsedReceipt {
     }
 
     const next = itemLine(line);
-    if (!next) continue;
+    if (!next) {
+      if (!FUEL_LINE.test(line)) continue;
+      if (pending && !FUEL_LINE.test(pending.description)) pushPending();
+      if (!pending) pending = { description: line, quantity: 1 };
+      const gallons = line.match(/(\d+(?:\.\d+)?)\s*gals?\b/i);
+      const perGallon = line.match(/@\s*\$?(\d+\.\d{2,3})/);
+      if (gallons) pending.quantity = Number(gallons[1]);
+      if (!/\bpumps?\b/i.test(pending.description)) pending.description = gallons ? `${gallons[1]} GAL` : line;
+      if (perGallon) pending.unitPrice = money(Number(perGallon[1]));
+      const trailing = line.match(/(-?\d+\.\d{2})\s*$/);
+      const trailingIsUnit = Boolean(trailing && perGallon && perGallon[1].startsWith(trailing[1]));
+      if (trailing && !trailingIsUnit) {
+        pending.amount = money(Number(trailing[1]));
+        pushPending();
+      }
+      continue;
+    }
     pushPending();
     pending = next;
     if (heldQty) {
@@ -214,8 +330,12 @@ export function parseReceipt(text: string, today = todayISO()): ParsedReceipt {
   }
   pushPending();
 
-  const items = applyTaxHint(
-    foldSavings(rawItems).map((item) =>
+  const named = foldSavings(rawItems).map((item) => ({
+    ...item,
+    description: readableCostcoName(item.description),
+  }));
+  let items = applyTaxHint(
+    named.map((item) =>
       makeItem({
         description: item.description,
         itemNumber: item.itemNumber,
@@ -227,6 +347,19 @@ export function parseReceipt(text: string, today = todayISO()): ParsedReceipt {
       }),
     ),
   );
+  const fuel = fuelFromText(rawText);
+  if (fuel) {
+    items = [
+      ...items.filter((item) => !/^(regular|premium|diesel|unleaded)$/i.test(item.description)),
+      makeItem({
+        description: fuel.description,
+        quantity: fuel.quantity,
+        unitPrice: fuel.unitPrice,
+        amount: fuel.amount ?? 0,
+        category: "gas",
+      }),
+    ];
+  }
 
   return {
     purchasedAt: parseDate(lines, today),
@@ -236,6 +369,41 @@ export function parseReceipt(text: string, today = todayISO()): ParsedReceipt {
     total,
     subtotal,
     rawText,
+  };
+}
+
+const COLLAPSED = /^(regular|premium|diesel|unleaded|\d+\s+of)$/i;
+
+export function improveReceipt(receipt: Receipt): Receipt | null {
+  if (!receipt.rawText?.trim()) return null;
+  const parsed = parseReceipt(receipt.rawText, receipt.purchasedAt);
+  if (!parsed.items.length) return null;
+  const collapsed = receipt.items.some((item) => COLLAPSED.test(item.description.trim()));
+  if (!collapsed) return null;
+  const items = parsed.items.map((item) => {
+    const previous = receipt.items.find(
+      (old) => old.description === item.description && old.quantity === item.quantity && old.amount === item.amount,
+    );
+    if (!previous) return item;
+    return {
+      ...item,
+      id: previous.id,
+      category: previous.category,
+      executiveEligible: previous.executiveEligible,
+      visaRate: previous.visaRate,
+    };
+  });
+  const same =
+    items.length === receipt.items.length &&
+    items.every((item, index) => item.id === receipt.items[index].id && item.description === receipt.items[index].description);
+  if (same) return null;
+  return {
+    ...receipt,
+    purchasedAt: parsed.purchasedAt,
+    warehouse: parsed.warehouse,
+    items,
+    tax: parsed.tax ?? receipt.tax,
+    total: parsed.total && parsed.total > 0 ? parsed.total : receipt.total,
   };
 }
 

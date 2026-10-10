@@ -74,7 +74,7 @@ export function SettingsScreen() {
       <section className="panel">
         <h2>Saved on this computer</h2>
         <p className="help">
-          Each trip is a file in the receipt folder. Nothing is sent to an account. {receipts.length}{" "}
+          Each trip is a file in the receipt folder, and its PDF or photo is stored beside it. Nothing is sent to an account. {receipts.length}{" "}
           {receipts.length === 1 ? "receipt is" : "receipts are"} saved there. Download a backup if you want another copy.
         </p>
         <code className="code-path">{folder}</code>

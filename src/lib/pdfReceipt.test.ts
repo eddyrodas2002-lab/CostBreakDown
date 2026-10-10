@@ -47,6 +47,20 @@ describe("receipt files", () => {
       { str: "TOTAL", transform: [12, 0, 0, 12, 40, 680], width: 40 },
     ]);
     expect(text).toBe("KS ORG EGGS 8.79\nTOTAL");
+  });
+
+  it("joins a wrapped Costco item with the price on that row", () => {
+    const text = linesFromTextItems([
+      { str: "E", transform: [1, 0, 0, 1, 144, 561], width: 8 },
+      { str: "1446716 CHPTLECHICKN 11.99 N", transform: [1, 0, 0, 1, 250, 561], width: 189 },
+      { str: "E", transform: [1, 0, 0, 1, 144, 537], width: 8 },
+      { str: "164950", transform: [1, 0, 0, 1, 250, 537], width: 40 },
+      { str: "KS", transform: [1, 0, 0, 1, 300, 544], width: 16 },
+      { str: "PEPPRCORN", transform: [1, 0, 0, 1, 300, 530], width: 76 },
+      { str: "6.89 N", transform: [1, 0, 0, 1, 398, 537], width: 35 },
+    ]);
+    expect(text).toContain("1446716 CHPTLECHICKN 11.99 N");
+    expect(text).toContain("164950 KS PEPPRCORN 6.89 N");
     expect(hasReadableText(text)).toBe(true);
     expect(hasReadableText("")).toBe(false);
   });
@@ -63,5 +77,30 @@ describe("receipt files", () => {
     expect(byName["KS ORG EGGS"].amount).toBe(8.79);
     expect(byName["KIRKLAND PAPER TOWELS"].amount).toBe(21.99);
     expect(parsed.total).toBe(30.78);
+  });
+
+  it("breaks a pdf into categorized items when names and prices are on separate lines", async () => {
+    const file = new File(
+      [
+        pdfBytes([
+          "SEATTLE WA",
+          "Kirkland Signature Organic Eggs, 24 Count",
+          "8.79",
+          "Kirkland Signature Paper Towels, 12 Rolls",
+          "21.99",
+          "SUBTOTAL 30.78",
+          "TOTAL 30.78",
+        ]),
+      ],
+      "warehouse.pdf",
+      { type: "application/pdf" },
+    );
+    const parsed = parseReceipt(await readReceiptPdf(file, () => undefined), "2026-10-09");
+    const byName = Object.fromEntries(parsed.items.map((item) => [item.description, item]));
+    expect(byName["Kirkland Signature Organic Eggs, 24 Count"].category).toBe("groceries");
+    expect(byName["Kirkland Signature Organic Eggs, 24 Count"].amount).toBe(8.79);
+    expect(byName["Kirkland Signature Paper Towels, 12 Rolls"].category).toBe("household");
+    expect(parsed.total).toBe(30.78);
+    expect(parsed.items).toHaveLength(2);
   });
 });

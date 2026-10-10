@@ -48,6 +48,7 @@ export interface Receipt {
   tax: number;
   total: number;
   rawText?: string;
+  sourceFile?: string;
   sample?: boolean;
   createdAt: string;
 }
@@ -72,6 +73,8 @@ export interface Draft {
   rawText: string;
   sample: boolean;
   editingId?: string;
+  sourceKey?: string;
+  sourceName?: string;
   detectedSubtotal?: number;
 }
 

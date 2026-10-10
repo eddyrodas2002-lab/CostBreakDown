@@ -52,7 +52,7 @@ function useRoute() {
 const TITLES: Record<Route["name"], string> = {
   home: "Home",
   plan: "Plan",
-  trips: "Trips",
+  trips: "Receipts",
   trip: "Trip",
   categories: "Categories",
   settings: "Settings",

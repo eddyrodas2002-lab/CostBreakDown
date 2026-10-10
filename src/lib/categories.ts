@@ -68,7 +68,7 @@ export function rewardFlags(description: string, category: Category): RewardFlag
 }
 
 const RULES: { category: Category; test: RegExp }[] = [
-  { category: "gas", test: /\b(unleaded|gasoline|diesel|fuel|gas)\b/i },
+  { category: "gas", test: /\b(unleaded|gasoline|diesel|fuel|gas|pumps?|gallons?|gals?)\b/i },
   {
     category: "food-court",
     test: /chicken bake|pizza slice|food court|\bchurro\b|\bicee\b|hot dog(?!\s+buns?)/i,
@@ -104,9 +104,17 @@ const RULES: { category: Category; test: RegExp }[] = [
   },
   {
     category: "groceries",
-    test: /\b(eggs?|milk|banana|apple|chicken|beef|pork|cheese|yogurt|bread|butter|coffee|cereal|rice|pasta|salmon|shrimp|berry|berries|avocado|juice|chips?|cookie|croissant|muffin|bagel|tortilla|flour|sugar|spice|frozen|lettuce|spinach|broccoli|steak|turkey|bacon|sausage|hummus|salsa|guacamole|rotisserie|pizza|snack|almond|peanut|oat|cream|produce|organic|vegetable|fruit|grape|orange|lemon|lime|melon|potato|onion|tomato|cucumber|carrot|kale|cabbage|corn|bean|lentil|quinoa|granola|cracker|pretzel|popcorn|chocolate|candy|soda|coke|pepsi|sparkling|water|kombucha|tea|ketchup|mustard|mayo|sauce|broth|soup|noodle|ramen|tofu|meat|lamb|fish|tuna|bakery|baguette|roll|cake|pesto|olive|vinegar|honey|jam|jelly|salt|cheddar|mozzarella|deli|ribeye|sirloin|bun|buns|ice cream|hot dog buns)\b/i,
+    test: /\b(eggs?|milk|banana|apple|chicken|beef|pork|cheese|yogurt|bread|butter|coffee|cereal|rice|pasta|salmon|shrimp|berry|berries|avocado|juice|chips?|cookie|croissant|muffin|bagel|tortilla|flour|sugar|spice|frozen|lettuce|spinach|broccoli|steak|turkey|bacon|sausage|hummus|salsa|guacamole|rotisserie|pizza|snack|almond|peanut|oat|cream|produce|organic|vegetable|fruit|grape|orange|lemon|lime|melon|potato|onion|tomato|cucumber|carrot|kale|cabbage|corn|bean|lentil|quinoa|granola|cracker|pretzel|popcorn|chocolate|candy|soda|coke|pepsi|sparkling|water|kombucha|tea|ketchup|mustard|mayo|sauce|broth|soup|noodle|ramen|tofu|meat|lamb|fish|tuna|bakery|baguette|roll|cake|pesto|olive|vinegar|honey|jam|jelly|salt|cheddar|mozzarella|deli|ribeye|sirloin|bun|buns|ice cream|hot dog buns|peppercorn|pepper)\b|chickn|chptle|peppr|chkn/i,
   },
 ];
+
+export function readableCostcoName(description: string): string {
+  return description
+    .replace(/CHPTLECHICKN/gi, "Chipotle Chicken")
+    .replace(/PEPPRCORN/gi, "Peppercorn")
+    .replace(/\bCHICKN\b/gi, "Chicken")
+    .replace(/\bCHKN\b/gi, "Chicken");
+}
 
 export function categorize(description: string): Category {
   const text = description.trim();
@@ -115,6 +123,22 @@ export function categorize(description: string): Category {
     if (rule.test.test(text)) return rule.category;
   }
   return "other";
+}
+
+export function assignRoles(items: LineItem[]): LineItem[] {
+  return items.map((item) => {
+    const next = categorize(item.description);
+    const category = next === "gas" || (item.category === "other" && next !== "other") ? next : item.category;
+    const resolved = rewardFlags(item.description, category);
+    if (
+      category === item.category &&
+      resolved.executiveEligible === item.executiveEligible &&
+      resolved.visaRate === item.visaRate
+    ) {
+      return item;
+    }
+    return makeItem({ ...item, category });
+  });
 }
 
 export function makeItem(

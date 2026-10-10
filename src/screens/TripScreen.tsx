@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { OriginalReceipt } from "../components/OriginalReceipt";
 import { CATEGORIES, categoryMeta } from "../lib/categories";
 import { formatMoney, formatPrettyDate, lineSum, money } from "../lib/money";
 import { summarize } from "../lib/savings";
@@ -12,7 +14,8 @@ export function TripScreen({
   onEdit: () => void;
   onDeleted: () => void;
 }) {
-  const { receipts, settings, deleteReceipt } = useStore();
+  const { receipts, settings, deleteReceipt, attachOriginal } = useStore();
+  const [attachError, setAttachError] = useState("");
   const receipt = receipts.find((entry) => entry.id === id);
   if (!receipt) {
     return (
@@ -47,6 +50,40 @@ export function TripScreen({
             <span>Groceries {formatMoney(rewards.groceryRewards)}</span>
           </article>
         </div>
+      </section>
+
+      <section className="panel">
+        <h2>Original file</h2>
+        {receipt.sourceFile ? (
+          <>
+            <p className="help">{receipt.sourceFile}</p>
+            <OriginalReceipt src={`/api/receipt-file/${receipt.id}`} fileName={receipt.sourceFile} />
+          </>
+        ) : (
+          <>
+            <p className="help">
+              This receipt was saved before its PDF was kept. Add the original file to check these items against it.
+            </p>
+            <label className="btn btn-sun">
+              Add the PDF or photo
+              <input
+                type="file"
+                accept="application/pdf,image/*,.pdf"
+                hidden
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (!file) return;
+                  setAttachError("");
+                  void attachOriginal(receipt.id, file).catch((caught: unknown) => {
+                    setAttachError(caught instanceof Error ? caught.message : "That file could not be saved.");
+                  });
+                }}
+              />
+            </label>
+            {attachError && <p className="banner warn">{attachError}</p>}
+          </>
+        )}
       </section>
 
       <article className="receipt-paper">
@@ -104,7 +141,7 @@ export function TripScreen({
           type="button"
           className="btn btn-danger"
           onClick={() => {
-            if (window.confirm("Delete this receipt from this browser?")) {
+            if (window.confirm("Delete this receipt? It is removed from the receipt folder.")) {
               deleteReceipt(receipt.id);
               onDeleted();
             }

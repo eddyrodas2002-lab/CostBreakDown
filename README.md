@@ -22,14 +22,14 @@ Open [http://127.0.0.1:5173/](http://127.0.0.1:5173/).
 | `npm run build` | Typecheck and build the production files |
 | `npm run preview` | Serve the production build locally |
 
-A photo, or a PDF that is only a scan, downloads a reader the first time so the words can be recognized on this device. That step needs a connection. After that, photos and scans are read in the browser. A PDF that already contains text is read without that download. Pasting the receipt text does not need it either.
+A photo, or a PDF that is only a scan, downloads a reader the first time so the words can be recognized on this device. That step needs a connection. After that, photos and scans are read in the browser. A PDF that already contains text is read without that download. Each item name and price is pulled out and categorized, including when the price sits on the next line or in its own column. A Costco myaccount printout is read the same way: warehouse items keep their names and prices, and a fuel invoice keeps the pump, gallons, and sale amount. Pasting the receipt text does not need the download either.
 
 ## How a trip gets in
 
 1. **Add a receipt** from Home, or the Add receipt button.
 2. Choose a photo or a PDF, paste the receipt text, or type the items yourself.
 3. Check the lines. Fix a name, price, or category if something looks off.
-4. Save. The trip is written to `data/receipts` as a JSON file named with the date and id, and the year’s totals update.
+4. Save. The trip is written to `data/receipts` as a JSON file named with the date and id. If you started from a PDF or photo, that original file is saved beside it. The year’s totals update.
 
 A sample receipt is on the empty home screen if you want to click around first. Delete it whenever you like.
 
@@ -39,9 +39,9 @@ A sample receipt is on the empty home screen if you want to click around first. 
 
 **Plan** is the list to buy before you go. It finds the foods that show up trip after trip, lets you edit quantities, and prices them at what you paid most recently so rising prices are in the budget. Gas is part of each trip. A bar graph and a pie chart split spending into food, clothes, gas, and everything else. Enter your paycheck and the price at another gas station to see what’s left and what Costco gas saved.
 
-**Trips** lists every receipt. Open one to see items grouped by category, with the black card and Visa share for that visit.
+**Receipts** lists every saved trip by date, and lists the file names in the receipt folder. Switch between newest and oldest, filter by year, open the saved items to see the name, quantity, price, and category that were stored, and delete a receipt from the folder. Open one for the original PDF or photo next to the category breakdown and the black card and Visa share for that visit. Receipts saved earlier can have the original file added from that page.
 
-**Categories** is the cart as a whole: trips, what you paid, groceries, and rewards, plus a bar for each category. Tap a category to list just those trips. Switch between this year and all saved trips.
+**Categories** is the cart as a whole: trips, what you paid, groceries, and rewards, plus a bar for each category. Pump, gallons, and other fuel words are counted as gas. Tap a category to see its spending. Week, 2 weeks, month, quarter, 6 months, year, and year-to-date each show how many times you went, what you spent, and whether that is up or down from the stretch before it.
 
 **Settings** turns each card on or off. Totals everywhere update immediately. The **i** next to a card explains how that reward is counted.
 
@@ -72,6 +72,6 @@ These are estimates from the receipts saved here, before tax.
 
 ## Your data
 
-While `npm run dev` or `npm run preview` is running, saving a receipt writes a file in `data/receipts`. Settings go in `data/settings.json`. You can open that folder and see every trip. Those files stay on this computer and are not committed to git.
+While `npm run dev` or `npm run preview` is running, saving a receipt writes a file in `data/receipts`, and the original PDF or photo is saved next to it. Settings go in `data/settings.json`. The Receipts screen lists those file names. You can also open that folder and see every trip. Those files stay on this computer and are not committed to git, so they stay out of the project file list.
 
 In Settings you can download a JSON backup, restore one, or erase the receipts. Erasing receipts removes the files from the folder and leaves the card toggles and pace as they are.

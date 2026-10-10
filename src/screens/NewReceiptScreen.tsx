@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { OriginalReceipt } from "../components/OriginalReceipt";
 import { CATEGORIES, makeItem } from "../lib/categories";
 import { formatMoney, lineSum, money, todayISO } from "../lib/money";
 import { receiptKind } from "../lib/pdfText";
 import { draftFromParsed, parseReceipt } from "../lib/parseReceipt";
 import { readReceiptFile } from "../lib/readReceipt";
+import { holdSourceFile, peekSourceFile } from "../lib/sourceFile";
 import { summarize } from "../lib/savings";
 import { useStore } from "../lib/store";
 import type { Draft, LineItem } from "../types";
@@ -52,7 +54,13 @@ function Picker({
         setError("We couldn’t find any words in that file. Try a clearer photo, or paste the text.");
         return;
       }
-      onParsed(draftFromParsed(parseReceipt(text)));
+      const sourceKey = await holdSourceFile(file);
+      onParsed(
+        draftFromParsed(parseReceipt(text), {
+          sourceKey: sourceKey ?? undefined,
+          sourceName: sourceKey ? file.name : undefined,
+        }),
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "That file couldn’t be read. Paste the text instead.");
     } finally {
@@ -158,6 +166,15 @@ function Editor({ draft, onSaved }: { draft: Draft; onSaved: (id: string) => voi
   const [showRaw, setShowRaw] = useState(draft.items.length === 0);
   const [detectedSubtotal, setDetectedSubtotal] = useState(draft.detectedSubtotal);
   const [error, setError] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
+
+  useEffect(() => {
+    const held = peekSourceFile(draft.sourceKey);
+    if (!held) return;
+    const url = URL.createObjectURL(new Blob([held.bytes], { type: held.type }));
+    setSourceUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [draft.sourceKey]);
 
   const sum = lineSum(items);
   const rewards = summarize(items, settings, false);
@@ -195,6 +212,7 @@ function Editor({ draft, onSaved }: { draft: Draft; onSaved: (id: string) => voi
           rawText,
           sample: draft.sample,
           editingId: draft.editingId,
+          sourceKey: draft.sourceKey,
           detectedSubtotal,
         });
         if (!id) {
@@ -205,6 +223,13 @@ function Editor({ draft, onSaved }: { draft: Draft; onSaved: (id: string) => voi
       }}
     >
       {draft.sample && <p className="banner">This is an example trip. Save it to explore, or delete it later.</p>}
+      {sourceUrl && draft.sourceName && (
+        <section className="panel">
+          <h2>Original file</h2>
+          <p className="help">{draft.sourceName} stays with this receipt so you can check the items against it.</p>
+          <OriginalReceipt src={sourceUrl} fileName={draft.sourceName} />
+        </section>
+      )}
       <section className="panel">
         <h2>Check the items</h2>
         <p className="help">Fix anything that looks wrong. Categories and rewards update as you edit.</p>

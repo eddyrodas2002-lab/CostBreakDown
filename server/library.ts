@@ -4,6 +4,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Connect } from "vite";
 
 const MAX_BODY = 2_000_000;
+const MAX_ORIGINAL = 8_000_000;
 
 export interface StoredReceipt {
   id: string;
@@ -13,6 +14,7 @@ export interface StoredReceipt {
   tax: number;
   total: number;
   rawText?: string;
+  sourceFile?: string;
   sample?: boolean;
   createdAt: string;
 }
@@ -41,6 +43,7 @@ export interface LibraryFile {
   version: 1;
   settings: StoredSettings;
   receipts: StoredReceipt[];
+  files: string[];
   folder: string;
 }
 
@@ -136,13 +139,46 @@ export function receiptFileName(receipt: StoredReceipt): string {
   return `${day}_${receipt.id}.json`;
 }
 
-function idFromFileName(fileName: string): string | null {
-  if (!fileName.endsWith(".json")) return null;
-  const base = fileName.slice(0, -".json".length);
+const ORIGINAL_TYPES: Record<string, string> = {
+  ".pdf": "application/pdf",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+};
+
+function fileId(fileName: string): string | null {
+  const extension = path.extname(fileName).toLowerCase();
+  if (extension !== ".json" && !ORIGINAL_TYPES[extension]) return null;
+  const base = fileName.slice(0, -extension.length);
   const splitAt = base.indexOf("_");
   if (splitAt === -1) return null;
   const id = base.slice(splitAt + 1);
   return safeId(id) ? id : null;
+}
+
+function originalExtension(contentType: string): string | null {
+  const type = contentType.split(";")[0]?.trim().toLowerCase();
+  if (type === "application/pdf") return ".pdf";
+  if (type === "image/png") return ".png";
+  if (type === "image/jpeg" || type === "image/jpg") return ".jpg";
+  if (type === "image/webp") return ".webp";
+  return null;
+}
+
+function findOriginal(folder: string, id: string): string | null {
+  if (!fs.existsSync(folder)) return null;
+  const matches = fs
+    .readdirSync(folder)
+    .filter((name) => fileId(name) === id && ORIGINAL_TYPES[path.extname(name).toLowerCase()]);
+  return matches.sort()[0] ?? null;
+}
+
+function listFiles(folder: string): string[] {
+  return fs
+    .readdirSync(folder)
+    .filter((name) => name.endsWith(".json") || ORIGINAL_TYPES[path.extname(name).toLowerCase()])
+    .sort();
 }
 
 function readJson(file: string): unknown {
@@ -169,6 +205,11 @@ export function readLibrary(root: string): LibraryFile {
       // Leave an unreadable file alone so a bad edit does not wipe the folder.
     }
   }
+  for (const receipt of receipts) {
+    const original = findOriginal(folder, receipt.id);
+    if (original) receipt.sourceFile = original;
+    else delete receipt.sourceFile;
+  }
   receipts.sort((a, b) => b.purchasedAt.localeCompare(a.purchasedAt) || b.createdAt.localeCompare(a.createdAt));
 
   let settings = defaultSettings;
@@ -183,7 +224,7 @@ export function readLibrary(root: string): LibraryFile {
     }
   }
 
-  return { version: 1, settings, receipts, folder };
+  return { version: 1, settings, receipts, files: listFiles(folder), folder };
 }
 
 export function writeLibrary(root: string, library: Pick<LibraryFile, "settings" | "receipts">) {
@@ -195,17 +236,67 @@ export function writeLibrary(root: string, library: Pick<LibraryFile, "settings"
   fs.mkdirSync(folder, { recursive: true });
   const keep = new Set(library.receipts.map((receipt) => receiptFileName(receipt)));
   const ids = new Set(library.receipts.map((receipt) => receipt.id));
+  const originals = new Map<string, string>();
+  for (const name of fs.readdirSync(folder)) {
+    const id = fileId(name);
+    if (!id) continue;
+    if (ORIGINAL_TYPES[path.extname(name).toLowerCase()]) originals.set(id, name);
+  }
 
   for (const name of fs.readdirSync(folder)) {
-    if (!name.endsWith(".json")) continue;
-    const id = idFromFileName(name);
-    if (id && (!ids.has(id) || !keep.has(name))) fs.unlinkSync(path.join(folder, name));
+    const id = fileId(name);
+    if (!id) continue;
+    const removed = !ids.has(id);
+    const renamed = name.endsWith(".json") && !keep.has(name);
+    if (removed || renamed) fs.unlinkSync(path.join(folder, name));
   }
 
   for (const receipt of library.receipts) {
-    writeJson(path.join(folder, receiptFileName(receipt)), receipt);
+    const original = originals.get(receipt.id);
+    const saved = { ...receipt };
+    if (original) {
+      const extension = path.extname(original);
+      const nextName = receiptFileName(receipt).replace(/\.json$/, extension.toLowerCase() === ".jpeg" ? ".jpg" : extension);
+      if (original !== nextName && fs.existsSync(path.join(folder, original))) {
+        fs.renameSync(path.join(folder, original), path.join(folder, nextName));
+      }
+      saved.sourceFile = nextName;
+    } else {
+      delete saved.sourceFile;
+    }
+    writeJson(path.join(folder, receiptFileName(receipt)), saved);
   }
   writeJson(settingsPath(root), settings);
+}
+
+export function writeOriginal(root: string, id: string, bytes: Buffer, contentType: string): string {
+  if (!safeId(id)) throw new Error("That receipt could not be found.");
+  const extension = originalExtension(contentType);
+  if (!extension) throw new Error("Save a PDF or a photo of the receipt.");
+  if (bytes.length === 0 || bytes.length > 8_000_000) throw new Error("That file is too large to save.");
+  const folder = receiptsDir(root);
+  const jsonName = fs.readdirSync(folder).find((name) => name.endsWith(".json") && fileId(name) === id);
+  if (!jsonName) throw new Error("Save the receipt before its original file.");
+  const nextName = jsonName.replace(/\.json$/, extension);
+  for (const name of fs.readdirSync(folder)) {
+    if (fileId(name) === id && ORIGINAL_TYPES[path.extname(name).toLowerCase()] && name !== nextName) {
+      fs.unlinkSync(path.join(folder, name));
+    }
+  }
+  const temporary = path.join(folder, `${nextName}.${process.pid}.tmp`);
+  fs.writeFileSync(temporary, bytes);
+  fs.renameSync(temporary, path.join(folder, nextName));
+  return nextName;
+}
+
+export function readOriginal(root: string, id: string): { fileName: string; bytes: Buffer; type: string } | null {
+  if (!safeId(id)) return null;
+  const folder = receiptsDir(root);
+  const fileName = findOriginal(folder, id);
+  if (!fileName) return null;
+  const type = ORIGINAL_TYPES[path.extname(fileName).toLowerCase()];
+  if (!type) return null;
+  return { fileName, bytes: fs.readFileSync(path.join(folder, fileName)), type };
 }
 
 function sendJson(response: ServerResponse, status: number, body: unknown) {
@@ -214,20 +305,20 @@ function sendJson(response: ServerResponse, status: number, body: unknown) {
   response.end(JSON.stringify(body));
 }
 
-function readBody(request: IncomingMessage): Promise<string> {
+function readChunks(request: IncomingMessage, limit: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;
     request.on("data", (chunk: Buffer) => {
       size += chunk.length;
-      if (size > MAX_BODY) {
+      if (size > limit) {
         reject(new Error("That file is too large to save."));
         request.destroy();
         return;
       }
       chunks.push(chunk);
     });
-    request.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    request.on("end", () => resolve(Buffer.concat(chunks)));
     request.on("error", reject);
   });
 }
@@ -235,6 +326,38 @@ function readBody(request: IncomingMessage): Promise<string> {
 export function createFolderMiddleware(root: string): Connect.NextHandleFunction {
   return (request, response, next) => {
     const url = request.url?.split("?")[0];
+    const originalMatch = url?.match(/^\/api\/receipt-file\/([a-zA-Z0-9-]{8,80})$/);
+    if (originalMatch) {
+      const id = originalMatch[1];
+      if (request.method === "GET") {
+        const file = readOriginal(root, id);
+        if (!file) {
+          sendJson(response, 404, { error: "That original file is not in the receipt folder." });
+          return;
+        }
+        response.statusCode = 200;
+        response.setHeader("content-type", file.type);
+        response.setHeader("content-disposition", `inline; filename="${file.fileName}"`);
+        response.end(file.bytes);
+        return;
+      }
+      if (request.method === "PUT") {
+        const contentType = request.headers["content-type"] ?? "";
+        void readChunks(request, MAX_ORIGINAL)
+          .then((bytes) => {
+            const sourceFile = writeOriginal(root, id, bytes, contentType);
+            sendJson(response, 200, { sourceFile });
+          })
+          .catch((error: unknown) => {
+            const message = error instanceof Error ? error.message : "Could not save the original file.";
+            sendJson(response, 400, { error: message });
+          });
+        return;
+      }
+      sendJson(response, 405, { error: "Use GET or PUT." });
+      return;
+    }
+
     if (url !== "/api/library") {
       next();
       return;
@@ -246,7 +369,7 @@ export function createFolderMiddleware(root: string): Connect.NextHandleFunction
     }
 
     if (request.method === "PUT") {
-      void readBody(request)
+      void readChunks(request, MAX_BODY).then((bytes) => bytes.toString("utf8"))
         .then((raw) => {
           const parsed = JSON.parse(raw) as Partial<LibraryFile>;
           writeLibrary(root, {

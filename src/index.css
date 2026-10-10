@@ -146,7 +146,7 @@ button { cursor: pointer; }
   color: var(--sun);
   font-size: 0.92rem;
 }
-.hero, .panel, .trip-card, .dropzone, .receipt-paper {
+.hero, .panel, .trip-card, .receipt-row, .dropzone, .receipt-paper {
   background: var(--paper);
   border: 3px solid var(--ink);
   border-radius: 24px;
@@ -223,7 +223,31 @@ button { cursor: pointer; }
 .selectable { background: var(--paper); border: 3px solid var(--ink); border-radius: 24px; padding: 10px; box-shadow: var(--shadow); }
 
 .trip-card { width: 100%; text-align: left; padding: 14px; }
-.trip-card p { color: var(--muted); }
+.receipt-row { padding: 14px; }
+.receipt-row p, .trip-card p { color: var(--muted); }
+.receipt-tools .segment { margin-top: 0; }
+.saved-details { margin-top: 8px; }
+.saved-details summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+.saved-lines {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.saved-lines li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+  padding-top: 8px;
+  border-top: 2px solid #f3ead6;
+}
+.saved-lines small { display: block; color: var(--muted); font-weight: 700; }
+.receipt-row .action-row { margin-top: 12px; }
 .trip-total { font-family: Fredoka, Nunito, sans-serif; font-size: 1.4rem; }
 .trip-meta { margin: 8px 0; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -411,6 +435,28 @@ label { display: grid; gap: 6px; font-size: 0.95rem; }
 .save-bar strong { display: block; font-family: Fredoka, Nunito, sans-serif; font-size: 1.4rem; }
 .save-bar small { color: var(--muted); }
 
+.original-frame, .original-photo {
+  width: 100%;
+  margin-top: 12px;
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  background: white;
+}
+.original-frame { height: min(78vh, 820px); }
+.original-photo { display: block; height: auto; }
+.folder-files {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.folder-files li {
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 0.82rem;
+  word-break: break-all;
+}
+
 .receipt-paper { padding: 16px 16px 8px; background: #fffef9; }
 .receipt-paper header, .receipt-paper h3 {
   display: flex;
@@ -464,6 +510,27 @@ label { display: grid; gap: 6px; font-size: 0.95rem; }
   place-items: center;
   padding: 24px;
 }
+.visit-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.visit-chip {
+  text-align: left;
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  background: white;
+  padding: 8px;
+}
+.visit-chip.on { background: var(--sun); }
+.visit-chip strong {
+  display: block;
+  font-family: Fredoka, Nunito, sans-serif;
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+.visit-chip span, .visit-chip small { display: block; color: var(--muted); font-size: 0.78rem; }
 .chart-grid { display: grid; gap: 14px; }
 .spend-chart {
   display: flex;
@@ -524,6 +591,7 @@ label { display: grid; gap: 6px; font-size: 0.95rem; }
   .stat-grid { grid-template-columns: repeat(3, 1fr); }
   .stat-grid div:last-child:nth-child(odd) { grid-column: auto; }
   .chart-grid { grid-template-columns: 1fr 1fr; }
+  .visit-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .plan-list li { grid-template-columns: 1.4fr 7rem auto auto; }
   .add-plan { grid-template-columns: 1.4fr 7rem 7rem auto; align-items: end; }
 }
@@ -552,6 +620,7 @@ label { display: grid; gap: 6px; font-size: 0.95rem; }
     box-shadow: var(--shadow);
     color: var(--tomato);
   }
+  .visit-strip { grid-template-columns: repeat(7, minmax(0, 1fr)); }
   .rail-nav { display: grid; gap: 6px; }
   .rail-link {
     text-align: left;
